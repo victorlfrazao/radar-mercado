@@ -1,0 +1,43 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model vagas {
+  id                 Int       @id @default(autoincrement())
+  fonte_id           String    @unique @db.VarChar(100)
+  fonte              String    @db.VarChar(20)
+  titulo             String?
+  descricao          String?
+  empresa            String?
+  empresa_canonical  String?
+  cidade             String?
+  estado             String?   @db.VarChar(2)
+  regiao             String?   @db.VarChar(20)
+  latitude           Float?
+  longitude          Float?
+  salario_min        Float?
+  salario_max        Float?
+  salario_previsto   Boolean?  @default(false)
+  categoria          String?   @db.VarChar(50)
+  categoria_original String?
+  modalidade         String?   @db.VarChar(20)
+  jornada            String?   @db.VarChar(20)
+  tipo_contrato      String?   @db.VarChar(30)
+  nivel_experiencia  String?   @db.VarChar(30)
+  hard_skills        String[]
+  soft_skills        String[]
+  link               String?
+  data_publicacao    DateTime? @db.Timestamptz(6)
+  coletado_em        DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@index([categoria], map: "idx_vagas_categoria")
+  @@index([data_publicacao], map: "idx_vagas_data")
+  @@index([empresa_canonical], map: "idx_vagas_empresa")
+  @@index([estado], map: "idx_vagas_estado")
+  @@index([fonte], map: "idx_vagas_fonte")
+}
