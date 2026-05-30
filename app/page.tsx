@@ -44,7 +44,7 @@ interface Habilidades {
   skillsPorCategoria: { categoria: string; topSkills: { skill: string; count: number }[] }[]
 }
 
-type Secao = "visao-geral" | "areas" | "localizacao" | "salarios" | "habilidades"
+type Secao = "visao-geral" | "areas" | "localizacao" | "salarios" | "habilidades" | "empresas"
 
 const COLORS = ["#00e5a0","#4f8cff","#f5a623","#ff6b6b","#a78bfa","#34d399","#fb923c","#38bdf8"]
 const CATEGORIAS = ["Tecnologia","Administrativo","Industrial","Saúde","Jurídico","Educação","Outros"]
@@ -110,90 +110,102 @@ function FiltroSelect({ label, options, value, onChange }: {
 // ─── Seções ───────────────────────────────────────────────
 
 function SecaoVisaoGeral({ data }: { data: VisaoGeral }) {
-  const maxCat = Math.max(...data.porCategoria.map(c => c.total), 1)
-  const maxEst = Math.max(...data.porEstado.map(e => e.total), 1)
-  const maxEmp = Math.max(...data.topEmpresas.map(e => e.total), 1)
-  const maxHS  = Math.max(...data.topHardSkills.map(s => s.count), 1)
-  const maxSS  = Math.max(...data.topSoftSkills.map(s => s.count), 1)
-
   return (
-    <div className="space-y-4">
-      {/* Métricas */}
-      <div className="grid grid-cols-2 gap-px bg-[#2a2e38] rounded-xl overflow-hidden md:grid-cols-4">
-        {[
-          { label: "Total de vagas",   value: data.totalVagas.toLocaleString("pt-BR"),               color: "text-[#00e5a0]" },
-          { label: "Áreas analisadas", value: String(data.porCategoria.length),                       color: "text-[#4f8cff]" },
-          { label: "Salário médio",    value: fmt(data.salarioMedio),                                 color: "text-[#f5a623]" },
-          { label: "Hard skills",      value: String(data.topHardSkills.length),                      color: "text-[#a78bfa]" },
-        ].map(m => (
-          <div key={m.label} className="bg-[#14171c] p-5">
-            <p className="mb-2 text-[11px] uppercase tracking-widest text-[#7a8099]">{m.label}</p>
-            <p className={`text-3xl font-semibold tracking-tight ${m.color}`}>{m.value}</p>
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+
+      {/* Áreas — pizza */}
+      <Card>
+        <CardTitle>Áreas</CardTitle>
+        <ResponsiveContainer width="100%" height={200}>
+          <PieChart>
+            <Pie data={data.porCategoria} dataKey="total" nameKey="categoria"
+              cx="50%" cy="50%" outerRadius={75}>
+              {data.porCategoria.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+            </Pie>
+            <Tooltip
+              contentStyle={{ background:"#1c2028", border:"1px solid #2a2e38", borderRadius:8, fontSize:11 }}
+              formatter={(value: number, name: string) => [value.toLocaleString("pt-BR"), name]}
+            />
+            <Legend wrapperStyle={{ fontSize:10, color:"#7a8099" }}/>
+          </PieChart>
+        </ResponsiveContainer>
+      </Card>
+
+      {/* Localização — barras verticais por região */}
+      <Card>
+        <CardTitle>Localização</CardTitle>
+        <ResponsiveContainer width="100%" height={200}>
+          <BarChart data={data.porEstado.slice(0,6)} margin={{ left:-20, bottom:10 }}>
+            <XAxis dataKey="estado" tick={{ fill:"#7a8099", fontSize:10 }} axisLine={false} tickLine={false}/>
+            <YAxis tick={{ fill:"#7a8099", fontSize:9 }} axisLine={false} tickLine={false}/>
+            <Tooltip contentStyle={{ background:"#1c2028", border:"1px solid #2a2e38", borderRadius:8, fontSize:11 }} labelStyle={{ color:"#e8eaf0" }} itemStyle={{ color:"#e8eaf0" }} formatter={(v:number) => [v.toLocaleString("pt-BR"), "vagas"]}/>
+            <Bar dataKey="total" radius={[3,3,0,0]}>
+              {data.porEstado.slice(0,6).map((_,i) => <Cell key={i} fill="#4f8cff" fillOpacity={1 - i*0.1}/>)}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </Card>
+
+      {/* Salário — mini histograma simulado com porCategoria */}
+      <Card>
+        <CardTitle>Salário</CardTitle>
+        <div className="flex flex-col justify-center h-[200px] gap-3 px-2">
+          <div className="text-center">
+            <p className="text-[11px] text-[#7a8099] uppercase tracking-wider mb-1">Média geral</p>
+            <p className="text-3xl font-semibold text-[#00e5a0]">{fmt(data.salarioMedio)}</p>
           </div>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {/* Áreas */}
-        <Card>
-          <CardTitle>Áreas — resumo</CardTitle>
-          {data.porCategoria.map(c => (
-            <BarraHorizontal key={c.categoria} label={c.categoria} value={c.total} max={maxCat} />
-          ))}
-        </Card>
-
-        {/* Gráfico pizza categorias */}
-        <Card>
-          <CardTitle>Distribuição por área</CardTitle>
-          <ResponsiveContainer width="100%" height={220}>
-            <PieChart>
-              <Pie data={data.porCategoria} dataKey="total" nameKey="categoria" cx="50%" cy="50%" outerRadius={85} label={({ categoria }) => categoria}>
-                {data.porCategoria.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-              </Pie>
-              <Tooltip contentStyle={{ background:"#1c2028", border:"1px solid #2a2e38", borderRadius:8, fontSize:12 }} />
-            </PieChart>
-          </ResponsiveContainer>
-        </Card>
-
-        {/* Localização */}
-        <Card>
-          <CardTitle>Localização — resumo</CardTitle>
-          {data.porEstado.map(e => (
-            <BarraHorizontal key={e.estado} label={e.estado} value={e.total} max={maxEst} cor="#4f8cff" />
-          ))}
-        </Card>
-
-        {/* Empresas */}
-        <Card>
-          <CardTitle>Empresas — resumo</CardTitle>
-          {data.topEmpresas.map(e => (
-            <BarraHorizontal key={e.empresa} label={e.empresa || "N/D"} value={e.total} max={maxEmp} cor="#f5a623" />
-          ))}
-        </Card>
-
-        {/* Hard Skills */}
-        <Card>
-          <CardTitle>Habilidades técnicas — resumo</CardTitle>
-          <div className="flex flex-wrap gap-2">
-            {data.topHardSkills.map((s, i) => (
-              <span key={s.skill} className={`rounded px-2.5 py-1 font-mono text-xs border ${
-                i === 0 ? "border-[#00e5a0]/30 bg-[#00e5a0]/10 text-[#00e5a0]"
-                : i <= 2 ? "border-[#4f8cff]/25 bg-[#4f8cff]/10 text-[#4f8cff]"
-                : "border-[#2a2e38] bg-[#1c2028] text-[#7a8099]"}`}>
-                {s.skill} <span className="opacity-50">{s.count}</span>
-              </span>
-            ))}
+          <div className="grid grid-cols-2 gap-3 mt-2">
+            <div className="rounded-lg bg-[#1c2028] p-3 text-center">
+              <p className="text-[10px] text-[#7a8099] mb-1">Vagas c/ salário</p>
+              <p className="text-lg font-semibold text-[#4f8cff]">{data.totalVagas.toLocaleString("pt-BR")}</p>
+            </div>
+            <div className="rounded-lg bg-[#1c2028] p-3 text-center">
+              <p className="text-[10px] text-[#7a8099] mb-1">Áreas</p>
+              <p className="text-lg font-semibold text-[#f5a623]">{data.porCategoria.length}</p>
+            </div>
           </div>
-        </Card>
+        </div>
+      </Card>
 
-        {/* Soft Skills */}
-        <Card>
-          <CardTitle>Habilidades interpessoais — resumo</CardTitle>
-          {data.topSoftSkills.map(s => (
-            <BarraHorizontal key={s.skill} label={s.skill} value={s.count} max={maxSS} cor="#a78bfa" />
-          ))}
-        </Card>
-      </div>
+      {/* Empresas — barras horizontais */}
+      <Card>
+        <CardTitle>Empresas</CardTitle>
+        <ResponsiveContainer width="100%" height={200}>
+          <BarChart data={data.topEmpresas.slice(0,5)} layout="vertical" margin={{ left:8 }}>
+            <XAxis type="number" tick={{ fill:"#7a8099", fontSize:9 }} axisLine={false} tickLine={false}/>
+            <YAxis type="category" dataKey="empresa" tick={{ fill:"#e8eaf0", fontSize:10 }} axisLine={false} tickLine={false} width={110} tickFormatter={(v:string)=>v.slice(0,14)}/>
+            <Tooltip contentStyle={{ background:"#1c2028", border:"1px solid #2a2e38", borderRadius:8, fontSize:11 }} formatter={(v:number) => [v.toLocaleString("pt-BR"), "vagas"]}/>
+            <Bar dataKey="total" fill="#f5a623" fillOpacity={0.85} radius={[0,3,3,0]}/>
+          </BarChart>
+        </ResponsiveContainer>
+      </Card>
+
+      {/* Hard Skills — barras horizontais */}
+      <Card>
+        <CardTitle>Habilidades técnicas</CardTitle>
+        <ResponsiveContainer width="100%" height={200}>
+          <BarChart data={data.topHardSkills.slice(0,6)} layout="vertical" margin={{ left:8 }}>
+            <XAxis type="number" tick={{ fill:"#7a8099", fontSize:9 }} axisLine={false} tickLine={false}/>
+            <YAxis type="category" dataKey="skill" tick={{ fill:"#e8eaf0", fontSize:10 }} axisLine={false} tickLine={false} width={80}/>
+            <Tooltip contentStyle={{ background:"#1c2028", border:"1px solid #2a2e38", borderRadius:8, fontSize:11 }} formatter={(v:number) => [v.toLocaleString("pt-BR"), "vagas"]}/>
+            <Bar dataKey="count" fill="#00e5a0" fillOpacity={0.85} radius={[0,3,3,0]}/>
+          </BarChart>
+        </ResponsiveContainer>
+      </Card>
+
+      {/* Soft Skills — barras horizontais */}
+      <Card>
+        <CardTitle>Habilidades interpessoais</CardTitle>
+        <ResponsiveContainer width="100%" height={200}>
+          <BarChart data={data.topSoftSkills.slice(0,5)} layout="vertical" margin={{ left:8 }}>
+            <XAxis type="number" tick={{ fill:"#7a8099", fontSize:9 }} axisLine={false} tickLine={false}/>
+            <YAxis type="category" dataKey="skill" tick={{ fill:"#e8eaf0", fontSize:10 }} axisLine={false} tickLine={false} width={120} tickFormatter={(v:string)=>v.slice(0,16)}/>
+            <Tooltip contentStyle={{ background:"#1c2028", border:"1px solid #2a2e38", borderRadius:8, fontSize:11 }} formatter={(v:number) => [v.toLocaleString("pt-BR"), "vagas"]}/>
+            <Bar dataKey="count" fill="#a78bfa" fillOpacity={0.85} radius={[0,3,3,0]}/>
+          </BarChart>
+        </ResponsiveContainer>
+      </Card>
+
     </div>
   )
 }
@@ -263,7 +275,7 @@ function SecaoAreas() {
             <BarChart data={data.porCategoria} margin={{ left: -20 }}>
               <XAxis dataKey="categoria" tick={{ fill:"#7a8099", fontSize:9 }} tickFormatter={(v:string)=>v.slice(0,6)} axisLine={false} tickLine={false}/>
               <YAxis tick={{ fill:"#7a8099", fontSize:9 }} axisLine={false} tickLine={false}/>
-              <Tooltip contentStyle={{ background:"#1c2028", border:"1px solid #2a2e38", borderRadius:8, fontSize:12 }}/>
+              <Tooltip contentStyle={{ background:"#1c2028", border:"1px solid #2a2e38", borderRadius:8, fontSize:12 }} labelStyle={{ color:"#e8eaf0" }} itemStyle={{ color:"#e8eaf0" }} formatter={(v:number) => [v.toLocaleString("pt-BR"), "vagas"]}/>
               <Bar dataKey="total" radius={[3,3,0,0]}>
                 {data.porCategoria.map((_, i) => <Cell key={i} fill={COLORS[i%COLORS.length]} fillOpacity={0.8}/>)}
               </Bar>
@@ -350,7 +362,7 @@ function SecaoLocalizacao() {
       </Card>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {/* Por região */}
+        {/* Por região — barras */}
         <Card>
           <CardTitle>Por região</CardTitle>
           {data.porRegiao.map(r => (
@@ -358,15 +370,21 @@ function SecaoLocalizacao() {
           ))}
         </Card>
 
-        {/* Gráfico regiões */}
+        {/* Distribuição regional — pizza sem labels fixos */}
         <Card>
           <CardTitle>Distribuição regional</CardTitle>
           <ResponsiveContainer width="100%" height={220}>
             <PieChart>
-              <Pie data={data.porRegiao} dataKey="total" nameKey="regiao" cx="50%" cy="50%" outerRadius={85} label={({ regiao }) => regiao}>
+              <Pie data={data.porRegiao} dataKey="total" nameKey="regiao" cx="50%" cy="50%" outerRadius={80}>
                 {data.porRegiao.map((_, i) => <Cell key={i} fill={COLORS[i%COLORS.length]} />)}
               </Pie>
-              <Tooltip contentStyle={{ background:"#1c2028", border:"1px solid #2a2e38", borderRadius:8, fontSize:12 }}/>
+              <Tooltip
+                contentStyle={{ background:"#1c2028", border:"1px solid #2a2e38", borderRadius:8, fontSize:12 }}
+                labelStyle={{ color:"#e8eaf0" }}
+                itemStyle={{ color:"#e8eaf0" }}
+                formatter={(v:number, name:string) => [v.toLocaleString("pt-BR") + " vagas", name]}
+              />
+              <Legend wrapperStyle={{ fontSize:11, color:"#7a8099" }}/>
             </PieChart>
           </ResponsiveContainer>
         </Card>
@@ -399,115 +417,124 @@ function SecaoLocalizacao() {
 }
 
 function SecaoSalarios() {
-  const [data, setData] = useState<Salarios | null>(null)
+  const [hist, setHist] = useState<{
+    histograma: { faixa: number; label: string; count: number }[]
+    media: number | null
+    minimo: number | null
+    maximo: number | null
+    amostras: number
+  } | null>(null)
   const [loading, setLoading] = useState(true)
+
+  // Filtros acumulativos
   const [categoria, setCategoria] = useState("")
-  const [skill, setSkill] = useState("")
+  const [estado,    setEstado]    = useState("")
+  const [empresa,   setEmpresa]   = useState("")
+  const [skill,     setSkill]     = useState("")
 
   const carregar = useCallback(async () => {
     setLoading(true)
     const params = new URLSearchParams()
     if (categoria) params.set("categoria", categoria)
-    if (skill) params.set("skill", skill)
-    const res = await fetch(`/api/salarios?${params}`)
-    setData(await res.json())
+    if (estado)    params.set("estado",    estado)
+    if (empresa)   params.set("empresa",   empresa)
+    if (skill)     params.set("skill",     skill)
+    const res = await fetch(`/api/salarios-hist?${params}`)
+    setHist(await res.json())
     setLoading(false)
-  }, [categoria, skill])
+  }, [categoria, estado, empresa, skill])
 
   useEffect(() => { carregar() }, [carregar])
 
-  if (loading) return <Loading />
-  if (!data) return null
-
   return (
     <div className="space-y-4">
-      {/* Filtros */}
+      {/* Filtros acumulativos */}
       <Card>
-        <CardTitle>Filtros</CardTitle>
+        <CardTitle>Filtros — acumulativos</CardTitle>
         <div className="flex flex-wrap gap-4">
-          <FiltroSelect label="Área" options={CATEGORIAS} value={categoria} onChange={setCategoria} />
+          <FiltroSelect label="Área"   options={CATEGORIAS} value={categoria} onChange={setCategoria} />
+          <FiltroSelect label="Estado" options={ESTADOS}    value={estado}    onChange={setEstado}    />
           <div className="flex items-center gap-2">
-            <span className="text-[11px] text-[#7a8099] uppercase tracking-wider">Skill:</span>
+            <span className="text-[11px] text-[#7a8099] uppercase tracking-wider">Empresa:</span>
+            <input placeholder="Ex: randstad" value={empresa} onChange={e => setEmpresa(e.target.value)}
+              className="w-28 bg-[#1c2028] border border-[#2a2e38] rounded px-2 py-1 text-xs text-[#e8eaf0] focus:outline-none focus:border-[#00e5a0]" />
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-[#7a8099] uppercase tracking-wider">Habilidade:</span>
             <input placeholder="Ex: python" value={skill} onChange={e => setSkill(e.target.value)}
               className="w-28 bg-[#1c2028] border border-[#2a2e38] rounded px-2 py-1 text-xs text-[#e8eaf0] focus:outline-none focus:border-[#00e5a0]" />
           </div>
           <button onClick={carregar} className="rounded border border-[#00e5a0] bg-[#00e5a0]/10 px-3 py-1 text-xs text-[#00e5a0] hover:bg-[#00e5a0]/20 transition">
             Aplicar
           </button>
+          {(categoria || estado || empresa || skill) && (
+            <button onClick={() => { setCategoria(""); setEstado(""); setEmpresa(""); setSkill("") }}
+              className="rounded border border-[#ff6b6b]/30 px-3 py-1 text-xs text-[#ff6b6b] hover:bg-[#ff6b6b]/10 transition">
+              Limpar filtros
+            </button>
+          )}
         </div>
+        {/* Filtros ativos */}
+        {(categoria || estado || empresa || skill) && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {categoria && <span className="rounded-full px-2.5 py-0.5 text-[11px] bg-[#00e5a0]/10 text-[#00e5a0] border border-[#00e5a0]/20">{categoria}</span>}
+            {estado    && <span className="rounded-full px-2.5 py-0.5 text-[11px] bg-[#4f8cff]/10 text-[#4f8cff] border border-[#4f8cff]/20">{estado}</span>}
+            {empresa   && <span className="rounded-full px-2.5 py-0.5 text-[11px] bg-[#f5a623]/10 text-[#f5a623] border border-[#f5a623]/20">{empresa}</span>}
+            {skill     && <span className="rounded-full px-2.5 py-0.5 text-[11px] bg-[#a78bfa]/10 text-[#a78bfa] border border-[#a78bfa]/20">{skill}</span>}
+          </div>
+        )}
       </Card>
 
-      {/* Cards de resumo */}
-      <div className="grid grid-cols-3 gap-px bg-[#2a2e38] rounded-xl overflow-hidden">
-        <div className="bg-[#14171c] p-5">
-          <p className="mb-2 text-[11px] uppercase tracking-widest text-[#7a8099]">Salário médio</p>
-          <p className="text-3xl font-semibold text-[#00e5a0]">{fmt(data.geral.media)}</p>
-          <p className="text-[11px] text-[#7a8099] mt-1">{data.geral.amostras} vagas com salário</p>
-        </div>
-        <div className="bg-[#14171c] p-5">
-          <p className="mb-2 text-[11px] uppercase tracking-widest text-[#7a8099]">Menor salário</p>
-          <p className="text-3xl font-semibold text-[#4f8cff]">{fmt(data.geral.minimo)}</p>
-        </div>
-        <div className="bg-[#14171c] p-5">
-          <p className="mb-2 text-[11px] uppercase tracking-widest text-[#7a8099]">Maior salário</p>
-          <p className="text-3xl font-semibold text-[#f5a623]">{fmt(data.geral.maximo)}</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {/* Por categoria */}
-        <Card>
-          <CardTitle>Faixa salarial por área</CardTitle>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={data.porCategoria.filter(c => c.media)} margin={{ left: -10 }}>
-              <XAxis dataKey="categoria" tick={{ fill:"#7a8099", fontSize:9 }} tickFormatter={(v:string)=>v.slice(0,6)} axisLine={false} tickLine={false}/>
-              <YAxis tick={{ fill:"#7a8099", fontSize:9 }} axisLine={false} tickLine={false} tickFormatter={(v:number)=>`${(v/1000).toFixed(0)}k`}/>
-              <Tooltip contentStyle={{ background:"#1c2028", border:"1px solid #2a2e38", borderRadius:8, fontSize:12 }} formatter={(v:number)=>[fmt(v)]}/>
-              <Legend wrapperStyle={{ fontSize:11, color:"#7a8099" }}/>
-              <Bar dataKey="media" name="Mínimo médio" fill="#00e5a0" fillOpacity={0.8} radius={[3,3,0,0]}/>
-              <Bar dataKey="mediaMax" name="Máximo médio" fill="#4f8cff" fillOpacity={0.8} radius={[3,3,0,0]}/>
-            </BarChart>
-          </ResponsiveContainer>
-        </Card>
-
-        {/* Por nível */}
-        <Card>
-          <CardTitle>Salário médio por nível</CardTitle>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={data.porNivel.filter(n => n.media)} layout="vertical" margin={{ left: 10 }}>
-              <XAxis type="number" tick={{ fill:"#7a8099", fontSize:9 }} axisLine={false} tickLine={false} tickFormatter={(v:number)=>`${(v/1000).toFixed(0)}k`}/>
-              <YAxis type="category" dataKey="nivel" tick={{ fill:"#e8eaf0", fontSize:10 }} axisLine={false} tickLine={false} width={120}/>
-              <Tooltip contentStyle={{ background:"#1c2028", border:"1px solid #2a2e38", borderRadius:8, fontSize:12 }} formatter={(v:number)=>[fmt(v)]}/>
-              <Bar dataKey="media" fill="#f5a623" fillOpacity={0.8} radius={[0,3,3,0]}/>
-            </BarChart>
-          </ResponsiveContainer>
-        </Card>
-
-        {/* Por estado */}
-        {data.porEstado.filter(e => e.media).length > 0 && (
+      {loading ? <Loading /> : hist && (
+        <>
+          {/* Histograma */}
           <Card>
-            <CardTitle>Salário médio por estado</CardTitle>
-            {data.porEstado.filter(e => e.media).map(e => {
-              const max = Math.max(...data.porEstado.filter(x => x.media).map(x => x.media!), 1)
-              return <BarraHorizontal key={e.estado} label={e.estado || "N/D"} value={e.media!} max={max} cor="#00e5a0" extra={fmt(e.media)} />
-            })}
+            <CardTitle>Distribuição salarial</CardTitle>
+            {hist.amostras === 0
+              ? <p className="text-sm text-[#7a8099] py-4">Nenhuma vaga com salário informado para estes filtros.</p>
+              : <ResponsiveContainer width="100%" height={280}>
+                  <BarChart data={hist.histograma} margin={{ left: -10 }}>
+                    <XAxis dataKey="label" tick={{ fill:"#7a8099", fontSize:10 }} axisLine={false} tickLine={false}/>
+                    <YAxis tick={{ fill:"#7a8099", fontSize:10 }} axisLine={false} tickLine={false}/>
+                    <Tooltip
+                      contentStyle={{ background:"#1c2028", border:"1px solid #2a2e38", borderRadius:8, fontSize:12 }}
+                      labelStyle={{ color:"#e8eaf0" }}
+                      itemStyle={{ color:"#e8eaf0" }}
+                      formatter={(value: number) => [`${value} vagas`, "Quantidade"]}
+                      labelFormatter={(l: string) => `Faixa: ${l}`}
+                    />
+                    <Bar dataKey="count" radius={[4,4,0,0]}>
+                      {hist.histograma.map((_, i) => (
+                        <Cell key={i} fill="#00e5a0" fillOpacity={0.5 + (i / hist.histograma.length) * 0.5} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+            }
           </Card>
-        )}
 
-        {/* Top empresas que mais pagam */}
-        {data.topEmpresas.filter(e => e.media).length > 0 && (
-          <Card>
-            <CardTitle>Empresas que mais pagam</CardTitle>
-            {data.topEmpresas.filter(e => e.media).map(e => {
-              const max = Math.max(...data.topEmpresas.filter(x => x.media).map(x => x.media!), 1)
-              return <BarraHorizontal key={e.empresa} label={e.empresa || "N/D"} value={e.media!} max={max} cor="#a78bfa" extra={fmt(e.media)} />
-            })}
-          </Card>
-        )}
-      </div>
+          {/* Legenda — Média, Máxima, Mínima */}
+          <div className="grid grid-cols-3 gap-px bg-[#2a2e38] rounded-xl overflow-hidden">
+            <div className="bg-[#14171c] p-5">
+              <p className="mb-1 text-[11px] uppercase tracking-widest text-[#7a8099]">Média</p>
+              <p className="text-2xl font-semibold text-[#00e5a0]">{fmt(hist.media)}</p>
+              <p className="text-[11px] text-[#7a8099] mt-1">{hist.amostras} vagas</p>
+            </div>
+            <div className="bg-[#14171c] p-5">
+              <p className="mb-1 text-[11px] uppercase tracking-widest text-[#7a8099]">Mínima</p>
+              <p className="text-2xl font-semibold text-[#4f8cff]">{fmt(hist.minimo)}</p>
+            </div>
+            <div className="bg-[#14171c] p-5">
+              <p className="mb-1 text-[11px] uppercase tracking-widest text-[#7a8099]">Máxima</p>
+              <p className="text-2xl font-semibold text-[#f5a623]">{fmt(hist.maximo)}</p>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }
+
 
 function SecaoHabilidades() {
   const [data, setData]     = useState<Habilidades | null>(null)
@@ -622,6 +649,120 @@ function SecaoHabilidades() {
   )
 }
 
+
+// ─── Seção Empresas ───────────────────────────────────────
+
+interface Empresas {
+  maisVagas:  { empresa: string; total: number; salarioMedio: number | null }[]
+  menosVagas: { empresa: string; total: number }[]
+  maisPagam:  { empresa: string; salarioMedio: number | null; total: number }[]
+  menosPagam: { empresa: string; salarioMedio: number | null; total: number }[]
+}
+
+function SecaoEmpresas() {
+  const [data, setData]       = useState<Empresas | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [categoria, setCategoria] = useState("")
+  const [estado, setEstado]       = useState("")
+  const [ordem, setOrdem]         = useState<"mais-vagas"|"menos-vagas"|"mais-pagam"|"menos-pagam">("mais-vagas")
+
+  const carregar = useCallback(async () => {
+    setLoading(true)
+    const params = new URLSearchParams()
+    if (categoria) params.set("categoria", categoria)
+    if (estado)    params.set("estado", estado)
+    const res = await fetch(`/api/empresas?${params}`)
+    setData(await res.json())
+    setLoading(false)
+  }, [categoria, estado])
+
+  useEffect(() => { carregar() }, [carregar])
+
+  if (loading) return <Loading />
+  if (!data)   return null
+
+  const lista = ordem === "mais-vagas"   ? data.maisVagas
+              : ordem === "menos-vagas"  ? data.menosVagas
+              : ordem === "mais-pagam"   ? data.maisPagam
+              : data.menosPagam
+
+  const maxVal = Math.max(...(lista as {total?:number;salarioMedio?:number|null}[]).map(e => (ordem.includes("pagam") ? (e as {salarioMedio:number|null}).salarioMedio || 0 : (e as {total:number}).total) ), 1)
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardTitle>Filtros</CardTitle>
+        <div className="flex flex-wrap gap-4">
+          <FiltroSelect label="Área"   options={CATEGORIAS} value={categoria} onChange={setCategoria} />
+          <FiltroSelect label="Estado" options={ESTADOS}    value={estado}    onChange={setEstado}    />
+          <button onClick={carregar} className="rounded border border-[#00e5a0] bg-[#00e5a0]/10 px-3 py-1 text-xs text-[#00e5a0] hover:bg-[#00e5a0]/20 transition">
+            Aplicar
+          </button>
+        </div>
+      </Card>
+
+      <Card>
+        <div className="mb-4 flex flex-wrap gap-2">
+          {([
+            { id: "mais-vagas",   label: "Mais vagas"    },
+            { id: "menos-vagas",  label: "Menos vagas"   },
+            { id: "mais-pagam",   label: "Mais pagam"    },
+            { id: "menos-pagam",  label: "Menos pagam"   },
+          ] as {id: typeof ordem; label: string}[]).map(o => (
+            <button key={o.id} onClick={() => setOrdem(o.id)}
+              className={`rounded px-3 py-1 text-xs border transition ${ordem === o.id ? "border-[#00e5a0] text-[#00e5a0] bg-[#00e5a0]/10" : "border-[#2a2e38] text-[#7a8099]"}`}>
+              {o.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="space-y-2">
+          {lista.map((e, i) => {
+            const val = ordem.includes("pagam") ? (e as {salarioMedio:number|null}).salarioMedio || 0 : (e as {total:number}).total
+            const extra = ordem.includes("pagam") ? fmt((e as {salarioMedio:number|null}).salarioMedio) : `${(e as {total:number}).total} vagas`
+            return (
+              <div key={e.empresa} className="flex items-center gap-3">
+                <span className="w-4 font-mono text-[11px] text-[#7a8099]">{i+1}</span>
+                <span className="w-48 flex-shrink-0 truncate text-sm">{e.empresa}</span>
+                <div className="h-1.5 flex-1 rounded bg-[#1c2028]">
+                  <div className="h-1.5 rounded transition-all duration-700"
+                    style={{ width:`${Math.round(val/maxVal*100)}%`, background: ordem.includes("mais")?"#00e5a0":"#ff6b6b" }}/>
+                </div>
+                <span className="w-24 text-right font-mono text-[11px] text-[#7a8099]">{extra}</span>
+              </div>
+            )
+          })}
+        </div>
+      </Card>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <Card>
+          <CardTitle>Mais vagas</CardTitle>
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={data.maisVagas.slice(0,8)} layout="vertical" margin={{ left:10 }}>
+              <XAxis type="number" tick={{ fill:"#7a8099", fontSize:9 }} axisLine={false} tickLine={false}/>
+              <YAxis type="category" dataKey="empresa" tick={{ fill:"#e8eaf0", fontSize:10 }} axisLine={false} tickLine={false} width={120} tickFormatter={(v:string)=>v.slice(0,15)}/>
+              <Tooltip contentStyle={{ background:"#1c2028", border:"1px solid #2a2e38", borderRadius:8, fontSize:12 }}/>
+              <Bar dataKey="total" fill="#00e5a0" fillOpacity={0.8} radius={[0,3,3,0]}/>
+            </BarChart>
+          </ResponsiveContainer>
+        </Card>
+        <Card>
+          <CardTitle>Que mais pagam</CardTitle>
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={data.maisPagam.slice(0,8)} layout="vertical" margin={{ left:10 }}>
+              <XAxis type="number" tick={{ fill:"#7a8099", fontSize:9 }} axisLine={false} tickLine={false} tickFormatter={(v:number)=>`${(v/1000).toFixed(0)}k`}/>
+              <YAxis type="category" dataKey="empresa" tick={{ fill:"#e8eaf0", fontSize:10 }} axisLine={false} tickLine={false} width={120} tickFormatter={(v:string)=>v.slice(0,15)}/>
+              <Tooltip contentStyle={{ background:"#1c2028", border:"1px solid #2a2e38", borderRadius:8, fontSize:12 }} formatter={(v:number)=>[fmt(v)]}/>
+              <Bar dataKey="salarioMedio" fill="#f5a623" fillOpacity={0.8} radius={[0,3,3,0]}/>
+            </BarChart>
+          </ResponsiveContainer>
+        </Card>
+      </div>
+    </div>
+  )
+}
+
 // ─── Componente principal ─────────────────────────────────
 
 export default function Home() {
@@ -641,26 +782,18 @@ export default function Home() {
     { id: "localizacao",   label: "Localização"  },
     { id: "salarios",      label: "Salário"      },
     { id: "habilidades",   label: "Habilidades"  },
+    { id: "empresas",      label: "Empresas"     },
   ]
 
   return (
     <main className="min-h-screen bg-[#0d0f12] text-[#e8eaf0] font-sans">
 
-      {/* Topbar */}
-      <nav className="sticky top-0 z-10 flex items-center justify-between border-b border-[#2a2e38] bg-[#0d0f12] px-8 py-4">
-        <div className="flex items-center gap-3">
-          <span className="h-2.5 w-2.5 rounded-full bg-[#00e5a0] shadow-[0_0_8px_#00e5a0]" />
-          <span className="text-sm font-medium">Tendências de Mercado</span>
-          <span className="rounded bg-[#00e5a0]/10 px-2 py-0.5 font-mono text-[11px] text-[#00e5a0] border border-[#00e5a0]/20">
-            {visaoGeral ? `${visaoGeral.totalVagas.toLocaleString("pt-BR")} vagas` : "..."}
-          </span>
-        </div>
-        <span className="font-mono text-[11px] text-[#7a8099]">Adzuna API · PostgreSQL</span>
-      </nav>
+      {/* Cabeçalho — reservado para uso futuro */}
+      <header className="border-b border-[#2a2e38] bg-[#0d0f12] px-8 py-4" />
 
       {/* Navegação */}
-      <div className="border-b border-[#2a2e38] px-8">
-        <div className="flex gap-1">
+      <div className="sticky top-0 z-10 border-b border-[#2a2e38] bg-[#0d0f12] px-8">
+        <div className="flex items-center gap-1">
           {secoes.map(s => (
             <button key={s.id} onClick={() => setSecao(s.id)}
               className={`px-5 py-3 text-sm transition border-b-2 -mb-px ${
@@ -671,6 +804,14 @@ export default function Home() {
               {s.label}
             </button>
           ))}
+          <div className="ml-auto">
+            <button onClick={() => {
+              setLoadingVG(true)
+              fetch("/api/visao-geral").then(r => r.json()).then(d => { setVisaoGeral(d); setLoadingVG(false) })
+            }} className="rounded border border-[#2a2e38] px-3 py-1.5 text-xs text-[#7a8099] hover:border-[#00e5a0] hover:text-[#00e5a0] transition">
+              ↻ Atualizar
+            </button>
+          </div>
         </div>
       </div>
 
@@ -680,11 +821,11 @@ export default function Home() {
         {secao === "localizacao" && <SecaoLocalizacao />}
         {secao === "salarios"    && <SecaoSalarios />}
         {secao === "habilidades" && <SecaoHabilidades />}
+        {secao === "empresas"    && <SecaoEmpresas />}
       </div>
 
-      <footer className="border-t border-[#2a2e38] py-6 text-center font-mono text-[11px] text-[#7a8099]">
-        Fonte: <span className="text-[#00e5a0]">Adzuna API</span> · Banco: <span className="text-[#4f8cff]">PostgreSQL</span> · Projeto acadêmico — sem fins comerciais
-      </footer>
+      {/* Rodapé — reservado para uso futuro */}
+      <footer className="border-t border-[#2a2e38] bg-[#0d0f12] py-4" />
     </main>
   )
 }
