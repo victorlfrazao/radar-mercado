@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
+import { ComposableMap, Geographies, Geography, ZoomableGroup } from "react-simple-maps"
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   Cell, PieChart, Pie, RadarChart, Radar, PolarGrid,
@@ -318,6 +319,100 @@ function SecaoAreas() {
   )
 }
 
+// Mapeamento sigla → nome do estado no GeoJSON
+const SIGLA_MAP: Record<string, string> = {
+  AC:"Acre",AL:"Alagoas",AP:"Amapá",AM:"Amazonas",BA:"Bahia",CE:"Ceará",
+  DF:"Distrito Federal",ES:"Espírito Santo",GO:"Goiás",MA:"Maranhão",
+  MT:"Mato Grosso",MS:"Mato Grosso do Sul",MG:"Minas Gerais",PA:"Pará",
+  PB:"Paraíba",PR:"Paraná",PE:"Pernambuco",PI:"Piauí",RJ:"Rio de Janeiro",
+  RN:"Rio Grande do Norte",RS:"Rio Grande do Sul",RO:"Rondônia",RR:"Roraima",
+  SC:"Santa Catarina",SP:"São Paulo",SE:"Sergipe",TO:"Tocantins",
+}
+
+function MapaBrasil({ porEstado }: { porEstado: { estado: string; total: number }[] }) {
+  const [tooltip, setTooltip] = useState<{ nome: string; total: number; x: number; y: number } | null>(null)
+  const maxEst = Math.max(...porEstado.map(e => e.total), 1)
+
+  const getColor = (sigla: string) => {
+    const est = porEstado.find(e => e.estado === sigla)
+    if (!est) return "#1c2028"
+    const pct = est.total / maxEst
+    if (pct > 0.7) return "#00e5a0"
+    if (pct > 0.4) return "#4f8cff"
+    if (pct > 0.2) return "#f5a623"
+    if (pct > 0.05) return "#a78bfa"
+    return "#2a2e38"
+  }
+
+  return (
+    <div className="relative">
+      <ComposableMap
+        projection="geoMercator"
+        projectionConfig={{ scale: 750, center: [-54, -14] }}
+        style={{ width:"100%", height:"360px" }}
+      >
+        <ZoomableGroup>
+          <Geographies geography="https://raw.githubusercontent.com/codeforamerica/click_that_hood/master/public/data/brazil-states.geojson">
+            {({ geographies }) =>
+              geographies.map(geo => {
+                const nome = geo.properties.name as string
+                const sigla = (geo.properties.sigla as string) || Object.entries(SIGLA_MAP).find(([, n]) => n === nome)?.[0] || ""
+                const est = porEstado.find(e => e.estado === sigla)
+                return (
+                  <Geography
+                    key={geo.rsmKey}
+                    geography={geo}
+                    fill={getColor(sigla)}
+                    stroke="#0d0f12"
+                    strokeWidth={0.5}
+                    style={{
+                      default: { outline:"none" },
+                      hover:   { outline:"none", fill:"#00e5a0", opacity:0.8, cursor:"pointer" },
+                      pressed: { outline:"none" },
+                    }}
+                    onMouseEnter={(e) => {
+                      setTooltip({ nome, total: est?.total || 0, x: e.clientX, y: e.clientY })
+                    }}
+                    onMouseMove={(e) => {
+                      setTooltip(t => t ? { ...t, x: e.clientX, y: e.clientY } : null)
+                    }}
+                    onMouseLeave={() => setTooltip(null)}
+                  />
+                )
+              })
+            }
+          </Geographies>
+        </ZoomableGroup>
+      </ComposableMap>
+
+      {/* Tooltip flutuante */}
+      {tooltip && (
+        <div className="fixed z-50 pointer-events-none rounded-lg border border-[#2a2e38] bg-[#1c2028] px-3 py-2 text-xs shadow-lg"
+          style={{ left: tooltip.x + 12, top: tooltip.y - 10 }}>
+          <p className="font-medium text-[#e8eaf0]">{tooltip.nome}</p>
+          <p className="text-[#00e5a0]">{tooltip.total.toLocaleString("pt-BR")} vagas</p>
+        </div>
+      )}
+
+      {/* Legenda de cores */}
+      <div className="mt-2 flex items-center justify-center gap-4 text-[10px] text-[#7a8099]">
+        {[
+          { cor:"#00e5a0", label:">70%" },
+          { cor:"#4f8cff", label:"40-70%" },
+          { cor:"#f5a623", label:"20-40%" },
+          { cor:"#a78bfa", label:"5-20%" },
+          { cor:"#2a2e38", label:"<5%" },
+        ].map(l => (
+          <div key={l.label} className="flex items-center gap-1">
+            <div className="w-3 h-3 rounded-sm" style={{ background: l.cor }}/>
+            {l.label}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function SecaoLocalizacao() {
   const [data, setData] = useState<Localizacao | null>(null)
   const [loading, setLoading] = useState(true)
@@ -361,6 +456,12 @@ function SecaoLocalizacao() {
         </div>
       </Card>
 
+      {/* Mapa do Brasil */}
+      <Card>
+        <CardTitle>Mapa do Brasil — vagas por estado</CardTitle>
+        <MapaBrasil porEstado={data.porEstado} />
+      </Card>
+
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {/* Por região — barras */}
         <Card>
@@ -370,7 +471,7 @@ function SecaoLocalizacao() {
           ))}
         </Card>
 
-        {/* Distribuição regional — pizza sem labels fixos */}
+        {/* Distribuição regional — pizza */}
         <Card>
           <CardTitle>Distribuição regional</CardTitle>
           <ResponsiveContainer width="100%" height={220}>
@@ -498,9 +599,7 @@ function SecaoSalarios() {
                     <YAxis tick={{ fill:"#7a8099", fontSize:10 }} axisLine={false} tickLine={false}/>
                     <Tooltip
                       contentStyle={{ background:"#1c2028", border:"1px solid #2a2e38", borderRadius:8, fontSize:12 }}
-                      labelStyle={{ color:"#e8eaf0" }}
-                      itemStyle={{ color:"#e8eaf0" }}
-                      formatter={(value: number) => [`${value} vagas`, "Quantidade"]}
+                      formatter={(v: number) => [`${v} vagas`, "Quantidade"]}
                       labelFormatter={(l: string) => `Faixa: ${l}`}
                     />
                     <Bar dataKey="count" radius={[4,4,0,0]}>
