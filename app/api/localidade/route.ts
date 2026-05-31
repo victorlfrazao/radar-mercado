@@ -7,6 +7,7 @@ export async function GET(req: NextRequest) {
   const empresa   = searchParams.get("empresa")   || undefined
   const salMin    = searchParams.get("salMin")     ? Number(searchParams.get("salMin")) : undefined
   const skill     = searchParams.get("skill")      || undefined
+  const regiao    = searchParams.get("regiao")     || undefined
 
   try {
     const where: Record<string, unknown> = { estado: { not: null } }
@@ -14,6 +15,7 @@ export async function GET(req: NextRequest) {
     if (empresa)   where.empresa_canonical = { contains: empresa.toLowerCase() }
     if (salMin)    where.salario_min = { gte: salMin }
     if (skill)     where.hard_skills = { has: skill }
+    if (regiao)    where.regiao = regiao
 
     // Por estado
     const porEstado = await prisma.vagas.groupBy({

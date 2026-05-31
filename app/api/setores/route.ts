@@ -8,6 +8,7 @@ export async function GET(req: NextRequest) {
   const salMin    = searchParams.get("salMin")     ? Number(searchParams.get("salMin"))    : undefined
   const salMax    = searchParams.get("salMax")     ? Number(searchParams.get("salMax"))    : undefined
   const skill     = searchParams.get("skill")      || undefined
+  const nivel     = searchParams.get("nivel")      || undefined
 
   try {
     const where: Record<string, unknown> = {}
@@ -16,6 +17,7 @@ export async function GET(req: NextRequest) {
     if (salMin)  where.salario_min = { gte: salMin }
     if (salMax)  where.salario_max = { lte: salMax }
     if (skill)   where.hard_skills = { has: skill }
+    if (nivel)   where.nivel_experiencia = nivel
 
     const porCategoria = await prisma.vagas.groupBy({
       by: ["categoria"],

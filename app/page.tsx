@@ -45,7 +45,7 @@ interface Habilidades {
   skillsPorCategoria: { categoria: string; topSkills: { skill: string; count: number }[] }[]
 }
 
-type Secao = "visao-geral" | "areas" | "localizacao" | "salarios" | "habilidades" | "empresas"
+type Secao = "visao-geral" | "setores" | "localidade" | "salarios" | "habilidades"
 
 const COLORS = ["#00e5a0","#4f8cff","#f5a623","#ff6b6b","#a78bfa","#34d399","#fb923c","#38bdf8"]
 const CATEGORIAS = ["Tecnologia","Administrativo","Industrial","Saúde","Jurídico","Educação","Outros"]
@@ -132,9 +132,9 @@ function SecaoVisaoGeral({ data }: { data: VisaoGeral }) {
         </ResponsiveContainer>
       </Card>
 
-      {/* Localização — barras verticais por região */}
+      {/* Localidade — barras verticais por região */}
       <Card>
-        <CardTitle>Localização</CardTitle>
+        <CardTitle>Localidade</CardTitle>
         <ResponsiveContainer width="100%" height={200}>
           <BarChart data={data.porEstado.slice(0,6)} margin={{ left:-20, bottom:10 }}>
             <XAxis dataKey="estado" tick={{ fill:"#7a8099", fontSize:10 }} axisLine={false} tickLine={false}/>
@@ -157,7 +157,7 @@ function SecaoVisaoGeral({ data }: { data: VisaoGeral }) {
           </div>
           <div className="grid grid-cols-2 gap-3 mt-2">
             <div className="rounded-lg bg-[#1c2028] p-3 text-center">
-              <p className="text-[10px] text-[#7a8099] mb-1">Vagas c/ salário</p>
+              <p className="text-[10px] text-[#7a8099] mb-1">Total de vagas</p>
               <p className="text-lg font-semibold text-[#4f8cff]">{data.totalVagas.toLocaleString("pt-BR")}</p>
             </div>
             <div className="rounded-lg bg-[#1c2028] p-3 text-center">
@@ -211,113 +211,82 @@ function SecaoVisaoGeral({ data }: { data: VisaoGeral }) {
   )
 }
 
-function SecaoAreas() {
+function SecaoSetores() {
   const [data, setData] = useState<Areas | null>(null)
   const [loading, setLoading] = useState(true)
   const [estado, setEstado] = useState("")
-  const [salMin, setSalMin] = useState("")
-  const [salMax, setSalMax] = useState("")
+  const [salMin, setSalMin] = useState(0)
+  const [nivel, setNivel] = useState("")
+
+  const NIVEIS = ["Não informado","Estágio/Trainee","Júnior","Pleno","Sênior","Liderança"]
 
   const carregar = useCallback(async () => {
     setLoading(true)
     const params = new URLSearchParams()
-    if (estado) params.set("estado", estado)
-    if (salMin) params.set("salMin", salMin)
-    if (salMax) params.set("salMax", salMax)
-    const res = await fetch(`/api/areas?${params}`)
+    if (estado)  params.set("estado",  estado)
+    if (salMin > 0) params.set("salMin", String(salMin))
+    if (nivel)   params.set("nivel",   nivel)
+    const res = await fetch(`/api/setores?${params}`)
     setData(await res.json())
     setLoading(false)
-  }, [estado, salMin, salMax])
+  }, [estado, salMin, nivel])
 
   useEffect(() => { carregar() }, [carregar])
 
   if (loading) return <Loading />
   if (!data) return null
 
-  const maxCat = Math.max(...data.porCategoria.map(c => c.total), 1)
-
   return (
     <div className="space-y-4">
-      {/* Filtros */}
+
+      {/* Filtros centralizados sem título */}
       <Card>
-        <CardTitle>Filtros</CardTitle>
-        <div className="flex flex-wrap gap-4">
-          <FiltroSelect label="Estado" options={ESTADOS} value={estado} onChange={setEstado} />
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] text-[#7a8099] uppercase tracking-wider">Salário:</span>
-            <input placeholder="Mín" value={salMin} onChange={e => setSalMin(e.target.value)}
-              className="w-24 bg-[#1c2028] border border-[#2a2e38] rounded px-2 py-1 text-xs text-[#e8eaf0] focus:outline-none focus:border-[#00e5a0]" />
-            <span className="text-[#7a8099] text-xs">até</span>
-            <input placeholder="Máx" value={salMax} onChange={e => setSalMax(e.target.value)}
-              className="w-24 bg-[#1c2028] border border-[#2a2e38] rounded px-2 py-1 text-xs text-[#e8eaf0] focus:outline-none focus:border-[#00e5a0]" />
+        <div className="flex flex-wrap items-center justify-center gap-6">
+          <FiltroSelect label="Local"      options={ESTADOS} value={estado}  onChange={setEstado} />
+          <FiltroSelect label="Experiência" options={NIVEIS}  value={nivel}   onChange={setNivel}  />
+
+          {/* Slider salário */}
+          <div className="flex items-center gap-3">
+            <span className="text-[11px] text-[#7a8099] uppercase tracking-wider flex-shrink-0">Salário mín:</span>
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-[11px] text-[#7a8099] w-16">R$ {(salMin/1000).toFixed(0)}k</span>
+              <input type="range" min={0} max={20000} step={1} value={salMin}
+                onChange={e => setSalMin(Number(e.target.value))}
+                className="w-32 accent-[#00e5a0] cursor-pointer" />
+              <span className="font-mono text-[11px] text-[#7a8099] w-16">R$ 20k</span>
+            </div>
           </div>
+
           <button onClick={carregar} className="rounded border border-[#00e5a0] bg-[#00e5a0]/10 px-3 py-1 text-xs text-[#00e5a0] hover:bg-[#00e5a0]/20 transition">
             Aplicar
           </button>
         </div>
       </Card>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {/* Por categoria */}
-        <Card>
-          <CardTitle>Visão geral por categoria</CardTitle>
-          {data.porCategoria.map(c => (
-            <div key={c.categoria} className="mb-2.5">
-              <BarraHorizontal label={c.categoria} value={c.total} max={maxCat}
-                extra={`${c.total} vagas${c.salarioMedio ? ` · ${fmt(c.salarioMedio)}` : ""}`} />
-            </div>
-          ))}
-        </Card>
+      {/* Volume por setor — barras horizontais, sem título, largura total */}
+      <Card>
+        <ResponsiveContainer width="100%" height={220}>
+          <BarChart data={data.porCategoria} layout="vertical" margin={{ left: 10, right: 20 }}>
+            <XAxis type="number" tick={{ fill:"#7a8099", fontSize:9 }} axisLine={false} tickLine={false}/>
+            <YAxis type="category" dataKey="categoria" tick={{ fill:"#e8eaf0", fontSize:11 }} axisLine={false} tickLine={false} width={110}/>
+            <Tooltip
+              contentStyle={{ background:"#1c2028", border:"1px solid #2a2e38", borderRadius:8, fontSize:12 }}
+              labelStyle={{ color:"#e8eaf0" }}
+              itemStyle={{ color:"#e8eaf0" }}
+              formatter={(v:number) => [v.toLocaleString("pt-BR"), "vagas"]}
+            />
+            <Bar dataKey="total" radius={[0,3,3,0]}>
+              {data.porCategoria.map((_,i) => <Cell key={i} fill={COLORS[i%COLORS.length]} fillOpacity={0.8}/>)}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </Card>
 
-        {/* Gráfico barras */}
-        <Card>
-          <CardTitle>Volume por categoria</CardTitle>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={data.porCategoria} margin={{ left: -20 }}>
-              <XAxis dataKey="categoria" tick={{ fill:"#7a8099", fontSize:9 }} tickFormatter={(v:string)=>v.slice(0,6)} axisLine={false} tickLine={false}/>
-              <YAxis tick={{ fill:"#7a8099", fontSize:9 }} axisLine={false} tickLine={false}/>
-              <Tooltip contentStyle={{ background:"#1c2028", border:"1px solid #2a2e38", borderRadius:8, fontSize:12 }} labelStyle={{ color:"#e8eaf0" }} itemStyle={{ color:"#e8eaf0" }} formatter={(v:number) => [v.toLocaleString("pt-BR"), "vagas"]}/>
-              <Bar dataKey="total" radius={[3,3,0,0]}>
-                {data.porCategoria.map((_, i) => <Cell key={i} fill={COLORS[i%COLORS.length]} fillOpacity={0.8}/>)}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </Card>
-
-        {/* Por nível */}
-        <Card>
-          <CardTitle>Por nível de experiência</CardTitle>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={data.porNivel} layout="vertical" margin={{ left: 10 }}>
-              <XAxis type="number" tick={{ fill:"#7a8099", fontSize:9 }} axisLine={false} tickLine={false}/>
-              <YAxis type="category" dataKey="nivel" tick={{ fill:"#e8eaf0", fontSize:11 }} axisLine={false} tickLine={false} width={120}/>
-              <Tooltip contentStyle={{ background:"#1c2028", border:"1px solid #2a2e38", borderRadius:8, fontSize:12 }}/>
-              <Bar dataKey="total" fill="#4f8cff" fillOpacity={0.8} radius={[0,3,3,0]}/>
-            </BarChart>
-          </ResponsiveContainer>
-        </Card>
-
-        {/* Modalidade + Contrato */}
-        <div className="space-y-4">
-          <Card>
-            <CardTitle>Por modalidade</CardTitle>
-            {data.porModalidade.map(m => {
-              const max = Math.max(...data.porModalidade.map(x => x.total), 1)
-              return <BarraHorizontal key={m.modalidade} label={m.modalidade} value={m.total} max={max} cor="#f5a623" />
-            })}
-          </Card>
-          <Card>
-            <CardTitle>Por tipo de contrato</CardTitle>
-            {data.porContrato.slice(0,4).map(c => {
-              const max = Math.max(...data.porContrato.map(x => x.total), 1)
-              return <BarraHorizontal key={c.contrato} label={c.contrato || "N/D"} value={c.total} max={max} cor="#a78bfa" />
-            })}
-          </Card>
-        </div>
-      </div>
     </div>
   )
 }
+
+
 
 // Mapeamento sigla → nome do estado no GeoJSON
 const SIGLA_MAP: Record<string, string> = {
@@ -384,8 +353,6 @@ function MapaBrasil({ porEstado }: { porEstado: { estado: string; total: number 
           </Geographies>
         </ZoomableGroup>
       </ComposableMap>
-
-      {/* Tooltip flutuante */}
       {tooltip && (
         <div className="fixed z-50 pointer-events-none rounded-lg border border-[#2a2e38] bg-[#1c2028] px-3 py-2 text-xs shadow-lg"
           style={{ left: tooltip.x + 12, top: tooltip.y - 10 }}>
@@ -393,8 +360,6 @@ function MapaBrasil({ porEstado }: { porEstado: { estado: string; total: number 
           <p className="text-[#00e5a0]">{tooltip.total.toLocaleString("pt-BR")} vagas</p>
         </div>
       )}
-
-      {/* Legenda de cores */}
       <div className="mt-2 flex items-center justify-center gap-4 text-[10px] text-[#7a8099]">
         {[
           { cor:"#00e5a0", label:">70%" },
@@ -413,109 +378,104 @@ function MapaBrasil({ porEstado }: { porEstado: { estado: string; total: number 
   )
 }
 
-function SecaoLocalizacao() {
+
+function SecaoLocalidade() {
   const [data, setData] = useState<Localizacao | null>(null)
   const [loading, setLoading] = useState(true)
   const [categoria, setCategoria] = useState("")
-  const [salMin, setSalMin] = useState("")
+  const [salMin, setSalMin] = useState(0)
+  const [regiao, setRegiao] = useState("")
 
   const carregar = useCallback(async () => {
     setLoading(true)
     const params = new URLSearchParams()
     if (categoria) params.set("categoria", categoria)
-    if (salMin) params.set("salMin", salMin)
-    const res = await fetch(`/api/localizacao?${params}`)
+    if (salMin > 0) params.set("salMin", String(salMin))
+    if (regiao) params.set("regiao", regiao)
+    const res = await fetch(`/api/localidade?${params}`)
     setData(await res.json())
     setLoading(false)
-  }, [categoria, salMin])
+  }, [categoria, salMin, regiao])
 
   useEffect(() => { carregar() }, [carregar])
 
-  if (loading) return <Loading />
-  if (!data) return null
-
-  const maxEst = Math.max(...data.porEstado.map(e => e.total), 1)
-  const maxReg = Math.max(...data.porRegiao.map(r => r.total), 1)
-  const maxCid = Math.max(...data.porCidade.map(c => c.total), 1)
+  const REGIOES = ["Norte", "Nordeste", "Centro-Oeste", "Sudeste", "Sul"]
+  const maxReg = data ? Math.max(...data.porRegiao.map(r => r.total), 1) : 1
+  const maxEst = data ? Math.max(...data.porEstado.map(e => e.total), 1) : 1
 
   return (
     <div className="space-y-4">
-      {/* Filtros */}
+
+      {/* Filtros centralizados sem título */}
       <Card>
-        <CardTitle>Filtros</CardTitle>
-        <div className="flex flex-wrap gap-4">
-          <FiltroSelect label="Área" options={CATEGORIAS} value={categoria} onChange={setCategoria} />
+        <div className="flex flex-wrap items-center justify-center gap-6">
+          <FiltroSelect label="Setor" options={CATEGORIAS} value={categoria} onChange={setCategoria} />
+
+          {/* Filtro Região */}
           <div className="flex items-center gap-2">
-            <span className="text-[11px] text-[#7a8099] uppercase tracking-wider">Salário mín:</span>
-            <input placeholder="Ex: 3000" value={salMin} onChange={e => setSalMin(e.target.value)}
-              className="w-28 bg-[#1c2028] border border-[#2a2e38] rounded px-2 py-1 text-xs text-[#e8eaf0] focus:outline-none focus:border-[#00e5a0]" />
+            <span className="text-[11px] text-[#7a8099] uppercase tracking-wider flex-shrink-0">Região:</span>
+            <select value={regiao} onChange={e => setRegiao(e.target.value)}
+              className="bg-[#1c2028] border border-[#2a2e38] rounded px-2 py-1 text-xs text-[#e8eaf0] focus:outline-none focus:border-[#00e5a0]">
+              <option value="">Todos</option>
+              {REGIOES.map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
           </div>
+
+          {/* Slider salário */}
+          <div className="flex items-center gap-3">
+            <span className="text-[11px] text-[#7a8099] uppercase tracking-wider flex-shrink-0">Salário mín:</span>
+            <div className="flex flex-col gap-1">
+              <input type="range" min={0} max={20000} step={1} value={salMin}
+                onChange={e => setSalMin(Number(e.target.value))}
+                style={{ width: "200px", accentColor: "#00e5a0", cursor: "pointer" }} />
+              <span className="font-mono text-[11px] text-[#00e5a0]">R$ {salMin.toLocaleString("pt-BR")}</span>
+            </div>
+          </div>
+
           <button onClick={carregar} className="rounded border border-[#00e5a0] bg-[#00e5a0]/10 px-3 py-1 text-xs text-[#00e5a0] hover:bg-[#00e5a0]/20 transition">
             Aplicar
           </button>
         </div>
       </Card>
 
-      {/* Mapa do Brasil */}
-      <Card>
-        <CardTitle>Mapa do Brasil — vagas por estado</CardTitle>
-        <MapaBrasil porEstado={data.porEstado} />
-      </Card>
+      {loading ? <Loading /> : data && (
+        <div className="grid grid-cols-2 gap-4">
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {/* Por região — barras */}
-        <Card>
-          <CardTitle>Por região</CardTitle>
-          {data.porRegiao.map(r => (
-            <BarraHorizontal key={r.regiao} label={r.regiao} value={r.total} max={maxReg} cor="#4f8cff" />
-          ))}
-        </Card>
+          {/* Mapa sem título */}
+          <Card>
+            <MapaBrasil porEstado={data.porEstado} />
+          </Card>
 
-        {/* Distribuição regional — pizza */}
-        <Card>
-          <CardTitle>Distribuição regional</CardTitle>
-          <ResponsiveContainer width="100%" height={220}>
-            <PieChart>
-              <Pie data={data.porRegiao} dataKey="total" nameKey="regiao" cx="50%" cy="50%" outerRadius={80}>
-                {data.porRegiao.map((_, i) => <Cell key={i} fill={COLORS[i%COLORS.length]} />)}
-              </Pie>
-              <Tooltip
-                contentStyle={{ background:"#1c2028", border:"1px solid #2a2e38", borderRadius:8, fontSize:12 }}
-                labelStyle={{ color:"#e8eaf0" }}
-                itemStyle={{ color:"#e8eaf0" }}
-                formatter={(v:number, name:string) => [v.toLocaleString("pt-BR") + " vagas", name]}
-              />
-              <Legend wrapperStyle={{ fontSize:11, color:"#7a8099" }}/>
-            </PieChart>
-          </ResponsiveContainer>
-        </Card>
+          {/* Caixa região/estado sem título */}
+          <Card>
+            {regiao === "" ? (
+              // Mostra regiões
+              <div className="space-y-2.5">
+                {data.porRegiao.map(r => (
+                  <BarraHorizontal key={r.regiao} label={r.regiao} value={r.total} max={maxReg} cor="#4f8cff" />
+                ))}
+              </div>
+            ) : (
+              // Mostra estados da região selecionada
+              <div className="space-y-2.5">
+                {data.porEstado
+                  .filter(e => e.regiao === regiao)
+                  .map(e => (
+                    <BarraHorizontal key={e.estado} label={e.estado} value={e.total} max={maxEst} cor="#00e5a0" />
+                  ))}
+                {data.porEstado.filter(e => e.regiao === regiao).length === 0 && (
+                  <p className="text-sm text-[#7a8099]">Nenhuma vaga para esta região.</p>
+                )}
+              </div>
+            )}
+          </Card>
 
-        {/* Por estado */}
-        <Card className="md:col-span-2">
-          <CardTitle>Por estado</CardTitle>
-          <div className="grid grid-cols-1 gap-1 md:grid-cols-2">
-            {data.porEstado.map(e => (
-              <BarraHorizontal key={e.estado} label={`${e.estado} ${e.regiao ? `(${e.regiao})` : ""}`}
-                value={e.total} max={maxEst} cor="#00e5a0"
-                extra={`${e.total}${e.salarioMedio ? ` · ${fmt(e.salarioMedio)}` : ""}`} />
-            ))}
-          </div>
-        </Card>
-
-        {/* Top cidades */}
-        <Card className="md:col-span-2">
-          <CardTitle>Top 10 cidades</CardTitle>
-          <div className="grid grid-cols-1 gap-1 md:grid-cols-2">
-            {data.porCidade.map(c => (
-              <BarraHorizontal key={`${c.cidade}-${c.estado}`} label={`${c.cidade}, ${c.estado}`}
-                value={c.total} max={maxCid} cor="#f5a623" />
-            ))}
-          </div>
-        </Card>
-      </div>
+        </div>
+      )}
     </div>
   )
 }
+
 
 function SecaoSalarios() {
   const [hist, setHist] = useState<{
@@ -526,108 +486,79 @@ function SecaoSalarios() {
     amostras: number
   } | null>(null)
   const [loading, setLoading] = useState(true)
-
-  // Filtros acumulativos
   const [categoria, setCategoria] = useState("")
-  const [estado,    setEstado]    = useState("")
-  const [empresa,   setEmpresa]   = useState("")
-  const [skill,     setSkill]     = useState("")
+  const [estado, setEstado]       = useState("")
 
   const carregar = useCallback(async () => {
     setLoading(true)
     const params = new URLSearchParams()
     if (categoria) params.set("categoria", categoria)
     if (estado)    params.set("estado",    estado)
-    if (empresa)   params.set("empresa",   empresa)
-    if (skill)     params.set("skill",     skill)
     const res = await fetch(`/api/salarios-hist?${params}`)
     setHist(await res.json())
     setLoading(false)
-  }, [categoria, estado, empresa, skill])
+  }, [categoria, estado])
 
   useEffect(() => { carregar() }, [carregar])
 
   return (
     <div className="space-y-4">
-      {/* Filtros acumulativos */}
+
+      {/* Filtros centralizados sem título */}
       <Card>
-        <CardTitle>Filtros — acumulativos</CardTitle>
-        <div className="flex flex-wrap gap-4">
-          <FiltroSelect label="Área"   options={CATEGORIAS} value={categoria} onChange={setCategoria} />
-          <FiltroSelect label="Estado" options={ESTADOS}    value={estado}    onChange={setEstado}    />
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] text-[#7a8099] uppercase tracking-wider">Empresa:</span>
-            <input placeholder="Ex: randstad" value={empresa} onChange={e => setEmpresa(e.target.value)}
-              className="w-28 bg-[#1c2028] border border-[#2a2e38] rounded px-2 py-1 text-xs text-[#e8eaf0] focus:outline-none focus:border-[#00e5a0]" />
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] text-[#7a8099] uppercase tracking-wider">Habilidade:</span>
-            <input placeholder="Ex: python" value={skill} onChange={e => setSkill(e.target.value)}
-              className="w-28 bg-[#1c2028] border border-[#2a2e38] rounded px-2 py-1 text-xs text-[#e8eaf0] focus:outline-none focus:border-[#00e5a0]" />
-          </div>
+        <div className="flex flex-wrap items-center justify-center gap-6">
+          <FiltroSelect label="Setor" options={CATEGORIAS} value={categoria} onChange={setCategoria} />
+          <FiltroSelect label="Local" options={ESTADOS}    value={estado}    onChange={setEstado}    />
           <button onClick={carregar} className="rounded border border-[#00e5a0] bg-[#00e5a0]/10 px-3 py-1 text-xs text-[#00e5a0] hover:bg-[#00e5a0]/20 transition">
             Aplicar
           </button>
-          {(categoria || estado || empresa || skill) && (
-            <button onClick={() => { setCategoria(""); setEstado(""); setEmpresa(""); setSkill("") }}
-              className="rounded border border-[#ff6b6b]/30 px-3 py-1 text-xs text-[#ff6b6b] hover:bg-[#ff6b6b]/10 transition">
-              Limpar filtros
-            </button>
-          )}
         </div>
-        {/* Filtros ativos */}
-        {(categoria || estado || empresa || skill) && (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {categoria && <span className="rounded-full px-2.5 py-0.5 text-[11px] bg-[#00e5a0]/10 text-[#00e5a0] border border-[#00e5a0]/20">{categoria}</span>}
-            {estado    && <span className="rounded-full px-2.5 py-0.5 text-[11px] bg-[#4f8cff]/10 text-[#4f8cff] border border-[#4f8cff]/20">{estado}</span>}
-            {empresa   && <span className="rounded-full px-2.5 py-0.5 text-[11px] bg-[#f5a623]/10 text-[#f5a623] border border-[#f5a623]/20">{empresa}</span>}
-            {skill     && <span className="rounded-full px-2.5 py-0.5 text-[11px] bg-[#a78bfa]/10 text-[#a78bfa] border border-[#a78bfa]/20">{skill}</span>}
-          </div>
-        )}
       </Card>
 
       {loading ? <Loading /> : hist && (
         <>
-          {/* Histograma */}
+          {/* Caixa-resumo acima do histograma */}
           <Card>
-            <CardTitle>Distribuição salarial</CardTitle>
             {hist.amostras === 0
-              ? <p className="text-sm text-[#7a8099] py-4">Nenhuma vaga com salário informado para estes filtros.</p>
-              : <ResponsiveContainer width="100%" height={280}>
-                  <BarChart data={hist.histograma} margin={{ left: -10 }}>
-                    <XAxis dataKey="label" tick={{ fill:"#7a8099", fontSize:10 }} axisLine={false} tickLine={false}/>
-                    <YAxis tick={{ fill:"#7a8099", fontSize:10 }} axisLine={false} tickLine={false}/>
-                    <Tooltip
-                      contentStyle={{ background:"#1c2028", border:"1px solid #2a2e38", borderRadius:8, fontSize:12 }}
-                      formatter={(v: number) => [`${v} vagas`, "Quantidade"]}
-                      labelFormatter={(l: string) => `Faixa: ${l}`}
-                    />
-                    <Bar dataKey="count" radius={[4,4,0,0]}>
-                      {hist.histograma.map((_, i) => (
-                        <Cell key={i} fill="#00e5a0" fillOpacity={0.5 + (i / hist.histograma.length) * 0.5} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+              ? <p className="text-sm text-[#7a8099] text-center py-4">Nenhuma vaga com salário informado para estes filtros.</p>
+              : <div className="flex items-center justify-center gap-0">
+                  <div className="flex-1 text-center py-2">
+                    <p className="text-[11px] uppercase tracking-widest text-[#7a8099] mb-1">Mínima</p>
+                    <p className="text-2xl font-semibold text-[#4f8cff]">{fmt(hist.minimo)}</p>
+                  </div>
+                  <div className="flex-1 text-center py-2">
+                    <p className="text-[11px] uppercase tracking-widest text-[#7a8099] mb-1">Média</p>
+                    <p className="text-2xl font-semibold text-[#00e5a0]">{fmt(hist.media)}</p>
+                  </div>
+                  <div className="flex-1 text-center py-2">
+                    <p className="text-[11px] uppercase tracking-widest text-[#7a8099] mb-1">Máxima</p>
+                    <p className="text-2xl font-semibold text-[#f5a623]">{fmt(hist.maximo)}</p>
+                  </div>
+                </div>
             }
           </Card>
 
-          {/* Legenda — Média, Máxima, Mínima */}
-          <div className="grid grid-cols-3 gap-px bg-[#2a2e38] rounded-xl overflow-hidden">
-            <div className="bg-[#14171c] p-5">
-              <p className="mb-1 text-[11px] uppercase tracking-widest text-[#7a8099]">Média</p>
-              <p className="text-2xl font-semibold text-[#00e5a0]">{fmt(hist.media)}</p>
-              <p className="text-[11px] text-[#7a8099] mt-1">{hist.amostras} vagas</p>
-            </div>
-            <div className="bg-[#14171c] p-5">
-              <p className="mb-1 text-[11px] uppercase tracking-widest text-[#7a8099]">Mínima</p>
-              <p className="text-2xl font-semibold text-[#4f8cff]">{fmt(hist.minimo)}</p>
-            </div>
-            <div className="bg-[#14171c] p-5">
-              <p className="mb-1 text-[11px] uppercase tracking-widest text-[#7a8099]">Máxima</p>
-              <p className="text-2xl font-semibold text-[#f5a623]">{fmt(hist.maximo)}</p>
-            </div>
-          </div>
+          {/* Histograma sem título */}
+          <Card>
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={hist.histograma} margin={{ left: -10 }}>
+                <XAxis dataKey="label" tick={{ fill:"#7a8099", fontSize:10 }} axisLine={false} tickLine={false}/>
+                <YAxis tick={{ fill:"#7a8099", fontSize:10 }} axisLine={false} tickLine={false}/>
+                <Tooltip
+                  contentStyle={{ background:"#1c2028", border:"1px solid #2a2e38", borderRadius:8, fontSize:12 }}
+                  labelStyle={{ color:"#e8eaf0" }}
+                  itemStyle={{ color:"#e8eaf0" }}
+                  formatter={(value: number) => [`${value} vagas`, "Quantidade"]}
+                  labelFormatter={(l: string) => `Faixa: ${l}`}
+                />
+                <Bar dataKey="count" radius={[4,4,0,0]}>
+                  {hist.histograma.map((_, i) => (
+                    <Cell key={i} fill="#00e5a0" fillOpacity={0.5 + (i / hist.histograma.length) * 0.5} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </Card>
         </>
       )}
     </div>
@@ -635,115 +566,102 @@ function SecaoSalarios() {
 }
 
 
+function WordCloud({ skills, ordem, cor1, cor2 }: {
+  skills: { skill: string; count: number }[]
+  ordem: "mais" | "menos"
+  cor1: string
+  cor2: string
+}) {
+  const sorted = [...skills]
+    .sort((a, b) => ordem === "mais" ? b.count - a.count : a.count - b.count)
+    .slice(0, 30)
+  const max = sorted[0]?.count || 1
+  const min = sorted[sorted.length - 1]?.count || 1
+
+  return (
+    <div className="flex flex-wrap gap-3 items-center justify-center py-4 px-2" style={{ minHeight: 200 }}>
+      {sorted.map(s => {
+        const pct = max === min ? 0.5 : (s.count - min) / (max - min)
+        const size = Math.round(12 + pct * 28)
+        const opacity = 0.4 + pct * 0.6
+        const color = pct > 0.5 ? cor1 : cor2
+        return (
+          <span key={s.skill} title={`${s.count} vagas`}
+            style={{ fontSize: size, color, opacity, fontFamily: "monospace", cursor: "default", transition: "opacity 0.2s" }}
+            className="hover:opacity-100">
+            {s.skill}
+          </span>
+        )
+      })}
+    </div>
+  )
+}
+
 function SecaoHabilidades() {
-  const [data, setData]     = useState<Habilidades | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [tipo, setTipo]     = useState<"hard"|"soft">("hard")
+  const [data, setData]         = useState<Habilidades | null>(null)
+  const [dataSoft, setDataSoft] = useState<Habilidades | null>(null)
+  const [loading, setLoading]   = useState(true)
   const [categoria, setCategoria] = useState("")
+  const [ordem, setOrdem]       = useState<"mais"|"menos">("mais")
 
   const carregar = useCallback(async () => {
     setLoading(true)
-    const params = new URLSearchParams({ tipo })
+    const params = new URLSearchParams({ tipo: "hard" })
     if (categoria) params.set("categoria", categoria)
-    const res = await fetch(`/api/habilidades?${params}`)
-    setData(await res.json())
+    const paramsSoft = new URLSearchParams({ tipo: "soft" })
+    if (categoria) paramsSoft.set("categoria", categoria)
+
+    const [resHard, resSoft] = await Promise.all([
+      fetch(`/api/habilidades?${params}`).then(r => r.json()),
+      fetch(`/api/habilidades?${paramsSoft}`).then(r => r.json()),
+    ])
+    setData(resHard)
+    setDataSoft(resSoft)
     setLoading(false)
-  }, [tipo, categoria])
+  }, [categoria])
 
   useEffect(() => { carregar() }, [carregar])
 
-  if (loading) return <Loading />
-  if (!data) return null
-
-  const max = Math.max(...data.topSkills.map(s => s.count), 1)
-
   return (
     <div className="space-y-4">
+
       {/* Filtros */}
       <Card>
-        <CardTitle>Filtros</CardTitle>
-        <div className="flex flex-wrap gap-4">
-          <div className="flex gap-2">
-            <button onClick={() => setTipo("hard")} className={`rounded px-3 py-1 text-xs border transition ${tipo==="hard" ? "border-[#00e5a0] text-[#00e5a0] bg-[#00e5a0]/10" : "border-[#2a2e38] text-[#7a8099]"}`}>
-              Hard Skills
-            </button>
-            <button onClick={() => setTipo("soft")} className={`rounded px-3 py-1 text-xs border transition ${tipo==="soft" ? "border-[#a78bfa] text-[#a78bfa] bg-[#a78bfa]/10" : "border-[#2a2e38] text-[#7a8099]"}`}>
-              Soft Skills
-            </button>
+        <div className="flex flex-wrap items-center justify-center gap-6">
+          <FiltroSelect label="Setor" options={CATEGORIAS} value={categoria} onChange={setCategoria} />
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-[#7a8099] uppercase tracking-wider">Ordem:</span>
+            <select value={ordem} onChange={e => setOrdem(e.target.value as "mais"|"menos")}
+              className="bg-[#1c2028] border border-[#2a2e38] rounded px-2 py-1 text-xs text-[#e8eaf0] focus:outline-none focus:border-[#00e5a0]">
+              <option value="mais">Mais procuradas</option>
+              <option value="menos">Menos procuradas</option>
+            </select>
           </div>
-          <FiltroSelect label="Área" options={CATEGORIAS} value={categoria} onChange={setCategoria} />
+          <button onClick={carregar} className="rounded border border-[#00e5a0] bg-[#00e5a0]/10 px-3 py-1 text-xs text-[#00e5a0] hover:bg-[#00e5a0]/20 transition">
+            Aplicar
+          </button>
         </div>
       </Card>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {/* Top skills */}
-        <Card>
-          <CardTitle>Mais requisitadas — {tipo === "hard" ? "técnicas" : "interpessoais"}</CardTitle>
-          <div className="space-y-2">
-            {data.topSkills.slice(0, 12).map((s, i) => (
-              <div key={s.skill} className="flex items-center gap-3">
-                <span className="w-4 font-mono text-[11px] text-[#7a8099]">{i+1}</span>
-                <span className="w-32 flex-shrink-0 font-mono text-sm">{s.skill}</span>
-                <div className="h-1.5 flex-1 rounded bg-[#1c2028]">
-                  <div className="h-1.5 rounded transition-all duration-700"
-                    style={{ width:`${Math.round(s.count/max*100)}%`, background: tipo==="hard"?"#00e5a0":"#a78bfa" }} />
-                </div>
-                <span className="w-20 text-right font-mono text-[11px] text-[#7a8099]">
-                  {s.count} vagas{s.salarioMedio ? ` · ${fmt(s.salarioMedio)}` : ""}
-                </span>
-              </div>
-            ))}
-          </div>
-        </Card>
+      {loading ? <Loading /> : (
+        <>
+          <Card>
+            <CardTitle>Habilidades Técnicas (Hard Skill)</CardTitle>
+            {data && data.topSkills.length > 0
+              ? <WordCloud skills={data.topSkills} ordem={ordem} cor1="#00e5a0" cor2="#4f8cff" />
+              : <p className="text-sm text-[#7a8099] py-8 text-center">Nenhuma habilidade encontrada.</p>
+            }
+          </Card>
 
-        {/* Menos requisitadas */}
-        <Card>
-          <CardTitle>Menos requisitadas</CardTitle>
-          <div className="space-y-2">
-            {data.menosRequisitadas.map(s => (
-              <div key={s.skill} className="flex items-center justify-between rounded border border-[#2a2e38] bg-[#1c2028] px-3 py-2">
-                <span className="font-mono text-sm">{s.skill}</span>
-                <span className="font-mono text-xs text-[#ff6b6b] bg-[#ff6b6b]/10 px-2 py-0.5 rounded">{s.count}x</span>
-              </div>
-            ))}
-          </div>
-        </Card>
-
-        {/* Tags */}
-        <Card>
-          <CardTitle>Todas as skills</CardTitle>
-          <div className="flex flex-wrap gap-2">
-            {data.topSkills.map((s, i) => (
-              <span key={s.skill} className={`rounded px-2.5 py-1 font-mono text-xs border ${
-                i===0 ? "border-[#00e5a0]/30 bg-[#00e5a0]/10 text-[#00e5a0]"
-                : i<=2 ? "border-[#4f8cff]/25 bg-[#4f8cff]/10 text-[#4f8cff]"
-                : i<=5 ? "border-[#f5a623]/25 bg-[#f5a623]/10 text-[#f5a623]"
-                : "border-[#2a2e38] bg-[#1c2028] text-[#7a8099]"}`}>
-                {s.skill} <span className="opacity-50">{s.count}</span>
-              </span>
-            ))}
-          </div>
-        </Card>
-
-        {/* Skills por categoria */}
-        <Card>
-          <CardTitle>Skills por área</CardTitle>
-          <div className="space-y-3">
-            {data.skillsPorCategoria.slice(0,4).map(c => (
-              <div key={c.categoria}>
-                <p className="text-xs text-[#7a8099] mb-1">{c.categoria}</p>
-                <div className="flex flex-wrap gap-1">
-                  {c.topSkills.map(s => (
-                    <span key={s.skill} className="rounded px-2 py-0.5 font-mono text-[11px] bg-[#1c2028] border border-[#2a2e38] text-[#7a8099]">
-                      {s.skill}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-      </div>
+          <Card>
+            <CardTitle>Habilidades Interpessoais (Soft Skill)</CardTitle>
+            {dataSoft && dataSoft.topSkills.length > 0
+              ? <WordCloud skills={dataSoft.topSkills} ordem={ordem} cor1="#a78bfa" cor2="#f5a623" />
+              : <p className="text-sm text-[#7a8099] py-8 text-center">Nenhuma habilidade encontrada.</p>
+            }
+          </Card>
+        </>
+      )}
     </div>
   )
 }
@@ -792,7 +710,7 @@ function SecaoEmpresas() {
       <Card>
         <CardTitle>Filtros</CardTitle>
         <div className="flex flex-wrap gap-4">
-          <FiltroSelect label="Área"   options={CATEGORIAS} value={categoria} onChange={setCategoria} />
+          <FiltroSelect label="Setor"   options={CATEGORIAS} value={categoria} onChange={setCategoria} />
           <FiltroSelect label="Estado" options={ESTADOS}    value={estado}    onChange={setEstado}    />
           <button onClick={carregar} className="rounded border border-[#00e5a0] bg-[#00e5a0]/10 px-3 py-1 text-xs text-[#00e5a0] hover:bg-[#00e5a0]/20 transition">
             Aplicar
@@ -877,11 +795,10 @@ export default function Home() {
 
   const secoes: { id: Secao; label: string }[] = [
     { id: "visao-geral",   label: "Visão Geral"  },
-    { id: "areas",         label: "Áreas"        },
-    { id: "localizacao",   label: "Localização"  },
+    { id: "setores",       label: "Setores"      },
+    { id: "localidade",    label: "Localidade"   },
     { id: "salarios",      label: "Salário"      },
     { id: "habilidades",   label: "Habilidades"  },
-    { id: "empresas",      label: "Empresas"     },
   ]
 
   return (
@@ -892,18 +809,17 @@ export default function Home() {
 
       {/* Navegação */}
       <div className="sticky top-0 z-10 border-b border-[#2a2e38] bg-[#0d0f12] px-8">
-        <div className="flex items-center gap-1">
-          {secoes.map(s => (
-            <button key={s.id} onClick={() => setSecao(s.id)}
-              className={`px-5 py-3 text-sm transition border-b-2 -mb-px ${
-                secao === s.id
-                  ? "border-[#00e5a0] text-[#00e5a0]"
-                  : "border-transparent text-[#7a8099] hover:text-[#e8eaf0]"
-              }`}>
-              {s.label}
-            </button>
-          ))}
-          <div className="ml-auto">
+        <div className="flex items-center">
+          <div className="w-28 flex-shrink-0" />
+          <div className="flex flex-1 justify-center gap-1">
+            {secoes.map(s => (
+              <button key={s.id} onClick={() => setSecao(s.id)}
+                className={`px-5 py-3 text-sm transition border-b-2 -mb-px ${secao === s.id ? "border-[#00e5a0] text-[#00e5a0]" : "border-transparent text-[#7a8099] hover:text-[#e8eaf0]"}`}>
+                {s.label}
+              </button>
+            ))}
+          </div>
+          <div className="w-28 flex-shrink-0 flex justify-end">
             <button onClick={() => {
               setLoadingVG(true)
               fetch("/api/visao-geral").then(r => r.json()).then(d => { setVisaoGeral(d); setLoadingVG(false) })
@@ -915,12 +831,11 @@ export default function Home() {
       </div>
 
       <div className="mx-auto max-w-6xl px-8 py-8">
-        {secao === "visao-geral" && (loadingVG ? <Loading /> : visaoGeral && <SecaoVisaoGeral data={visaoGeral} />)}
-        {secao === "areas"       && <SecaoAreas />}
-        {secao === "localizacao" && <SecaoLocalizacao />}
+        {secao === "visao-geral" && <div className="py-24 text-center text-[#7a8099] text-sm">Em branco — reservado para uso futuro.</div>}
+        {secao === "setores"     && <SecaoSetores />}
+        {secao === "localidade"  && <SecaoLocalidade />}
         {secao === "salarios"    && <SecaoSalarios />}
         {secao === "habilidades" && <SecaoHabilidades />}
-        {secao === "empresas"    && <SecaoEmpresas />}
       </div>
 
       {/* Rodapé — reservado para uso futuro */}
